@@ -14,10 +14,9 @@
 
 > 这是很多 AI 聊天应用都会卡住的一道坎，越过去，聊天会立刻变得更像人。
 
-StickerSelector 本身非常轻量，即使运行在 `1 核心 / 1GB 内存 / 3Mbps` 的小型服务器上也可以正常使用。  
+StickerSelector 本身非常轻量，即使运行在 `1 核心 / 1GB 内存 / 3Mbps` 的小型服务器上也可以正常使用。
 
 如果条件允许，你也可以在自己的 PC 上部署更高性能的版本，配合各种聊天应用接入工具，或直接搭配 QQSafeChat，打造一个真正“拟真”的 AI 聊天体验。
-
 
 ## 1. 环境准备
 
@@ -29,6 +28,26 @@ StickerSelector 本身非常轻量，即使运行在 `1 核心 / 1GB 内存 / 3M
 ```bash
 pip install -r requirements.runtime.txt
 ```
+
+[不使用 Docker 点我跳转](#2-启动服务)
+
+如果是 Docker
+
+- ## Docker
+
+- ### CPU（通用）
+
+```bash
+docker compose -f docker/docker-compose.cpu.yml up --build
+```
+
+- ### GPU（CUDA 12.1）
+
+```bash
+docker compose -f docker/docker-compose.gpu.yml up --build
+```
+
+---
 
 ## 2. 启动服务
 

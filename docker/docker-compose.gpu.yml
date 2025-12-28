@@ -1,0 +1,24 @@
+version: "3.9"
+
+services:
+  stickerselector:
+    container_name: stickerselector-gpu
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.gpu
+    ports:
+      - "8000:8000"
+    environment:
+      - TZ=Asia/Shanghai
+      # 明确声明可见 GPU（可选，但推荐）
+      - NVIDIA_VISIBLE_DEVICES=all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+    volumes:
+      - ../sticker_service/data_runtime:/app/sticker_service/data_runtime
+      - ../hf-cache:/root/.cache/huggingface
+    restart: unless-stopped

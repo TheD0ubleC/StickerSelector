@@ -1,0 +1,16 @@
+version: "3.9"
+
+services:
+  stickerselector:
+    container_name: stickerselector-cpu
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.cpu
+    ports:
+      - "8000:8000"
+    environment:
+      - TZ=Asia/Shanghai
+    volumes:
+      - ../sticker_service/data_runtime:/app/sticker_service/data_runtime
+      - ../hf-cache:/root/.cache/huggingface
+    restart: unless-stopped
