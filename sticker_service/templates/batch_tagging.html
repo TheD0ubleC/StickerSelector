@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>批量打 Tag <span class="pill">#{{ batch_id }}</span></h1>
+    <div class="hint">
+      {% if batch_note %}备注：{{ batch_note }}{% else %}（无备注）{% endif %}
+      · 待打 Tag：<b id="pendingCount">{{ pending_count }}</b>
+    </div>
+  </div>
+  <div class="row-line">
+    <button class="btn glow" id="btnSaveAll">保存本页修改</button>
+    <button class="btn secondary" id="btnReload">刷新</button>
+    <button class="btn danger" id="btnDeleteBatch">删除批次</button>
+    <a class="btn ghost" href="/admin/pending">返回待打 Tag</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="statline">
+    <span class="pill" id="statPending">pending 0</span>
+    <span class="pill" id="statUnsaved">unsaved 0</span>
+  </div>
+</div>
+
+<div id="batchList" class="list-stack"></div>
+
+<script>
+  (function () {
+    const BATCH_ID = {{ batch_id }
+  };
+  const listEl = document.getElementById("batchList");
+  const pendingCountEl = document.getElementById("pendingCount");
+  const statPending = document.getElementById("statPending");
+  const statUnsaved = document.getElementById("statUnsaved");
+
+  const btnSaveAll = document.getElementById("btnSaveAll");
+  const btnReload = document.getElementById("btnReload");
+  const btnDeleteBatch = document.getElementById("btnDeleteBatch");
+
+  const edits = new Map();
+
+  function showToast(text, sub) {
+    if (typeof toast === "function") {
+      if (typeof sub === "number") {
+        toast(text);
+      } else {
+        toast(text, sub || "");
+      }
+    }
+  }
+
+  function parseTags(text) {
+    if (!text) return [];
+    return text.split(/[\s,，;；|]+/).map(x => x.trim()).filter(Boolean);
+  }
+
+  function tagsToText(arr) {
+    return (arr || []).map(x => String(x).trim()).filter(Boolean).join(" ");
+  }
+
+  function updateStats(total) {
+    const pending = total ?? (listEl.children.length || 0);
+    const unsaved = edits.size;
+    statPending.textContent = `pending ${pending}`;
+    statPending.className = "pill " + (pending > 0 ? "bad" : "ok");
+    statUnsaved.textContent = `unsaved ${unsaved}`;
+    statUnsaved.className = "pill " + (unsaved > 0 ? "bad" : "");
+  }
+
+  function escapeHtml(s) {
+    return String(s || "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;");
+  }
+
+  function renderRow(it) {
+    const row = document.createElement("div");
+    row.className = "batch-row";
+    row.dataset.id = it.id;
+
+    const tags = Array.isArray(it.tags) ? it.tags : [];
+    const tagsText = tagsToText(tags);
+
+    row.innerHTML = `
+        <div class="batch-thumb"><img src="${it.url}" loading="lazy" /></div>
+        <div class="batch-meta">
+          <div class="row-line">
+            <span class="pill">#${it.id}</span>
+            <span class="muted">${escapeHtml(it.series || "")}</span>
+          </div>
+          <div class="muted small">batch: ${it.batch_id ?? ""}</div>
+          <div class="row mt8">
+            <label>Tags（空格/逗号/换行分隔）</label>
+            <textarea class="textarea" rows="2" data-role="tags">${escapeHtml(tagsText)}</textarea>
+          </div>
+          <div class="row-line mt8">
+            <label class="muted">启用</label>
+            <select data-role="enabled">
+              <option value="1"${it.enabled ? " selected" : ""}>启用</option>
+              <option value="0"${!it.enabled ? " selected" : ""}>禁用</option>
+            </select>
+            <div class="spacer"></div>
+            <a class="btn small ghost" href="/admin/sticker/${it.id}" target="_blank">详情</a>
+            <button class="btn small danger" data-act="del">删除</button>
+          </div>
+        </div>
+      `;
+
+    const input = row.querySelector('[data-role="tags"]');
+    const sel = row.querySelector('[data-role="enabled"]');
+    input.addEventListener("input", () => {
+      edits.set(it.id, { tags: parseTags(input.value), enabled: (sel.value === "1") });
+      updateStats();
+    });
+    sel.addEventListener("change", () => {
+      edits.set(it.id, { tags: parseTags(input.value), enabled: (sel.value === "1") });
+      updateStats();
+    });
+
+    row.querySelector('[data-act="del"]').addEventListener("click", async () => {
+      await deleteSticker(it.id, row);
+    });
+
+    return row;
+  }
+
+  async function load() {
+    listEl.innerHTML = `<div class="card muted">加载中…</div>`;
+    const res = await fetch(`/api/pending?batch_id=${BATCH_ID}&limit=5000`);
+    const data = await res.json();
+    const items = data.items || [];
+    pendingCountEl.textContent = (data.meta && data.meta.count) ? data.meta.count : items.length;
+    edits.clear();
+
+    if (items.length === 0) {
+      listEl.innerHTML = `<div class="card"><div class="muted">这个批次已经没有待打 Tag 的图片了 ✅</div></div>`;
+      updateStats(0);
+      return;
+    }
+
+    listEl.innerHTML = "";
+    for (const it of items) {
+      listEl.appendChild(renderRow(it));
+    }
+    updateStats(items.length);
+  }
+
+  async function saveAll() {
+    if (edits.size === 0) {
+      showToast("没有修改内容需要保存");
+      return;
+    }
+    btnSaveAll.disabled = true;
+    btnSaveAll.textContent = "保存中…";
+
+    const payload = { items: [] };
+    for (const [id, v] of edits.entries()) {
+      payload.items.push({ id, tags: v.tags || [], enabled: !!v.enabled });
+    }
+
+    try {
+      const res = await fetch("/api/stickers/bulk_update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        showToast("保存失败：" + (data.detail || "unknown"), 2200);
+        return;
+      }
+      showToast(`✅ 保存完成：更新 ${data.updated || 0} 条`);
+      edits.clear();
+      await load();
+      if (typeof refreshBadge === "function") refreshBadge();
+    } catch (e) {
+      showToast("保存失败：网络错误", 2200);
+    } finally {
+      btnSaveAll.disabled = false;
+      btnSaveAll.textContent = "保存本页修改";
+    }
+  }
+
+  async function deleteSticker(id, row) {
+    if (!confirm(`确定删除这张表情包？\n#${id}\n（会同时删除图片文件，无法恢复）`)) return;
+    const btn = row.querySelector('[data-act="del"]');
+    btn.disabled = true;
+    btn.textContent = "删除中…";
+    try {
+      const res = await fetch("/api/sticker/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id })
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        showToast("删除失败：" + (data.detail || "unknown"), 2200);
+        btn.disabled = false;
+        btn.textContent = "删除";
+        return;
+      }
+      edits.delete(id);
+      row.remove();
+      showToast(`🗑️ 已删除：#${id}`);
+      const cur = parseInt(pendingCountEl.textContent || "0", 10) || 0;
+      pendingCountEl.textContent = String(Math.max(0, cur - 1));
+      updateStats();
+      if (typeof refreshBadge === "function") refreshBadge();
+    } catch (e) {
+      showToast("删除失败：网络错误", 2200);
+    }
+  }
+
+  async function deleteBatch() {
+    if (!confirm(`确定删除整个批次？\nBatch #${BATCH_ID}\n（会删除该批次内所有表情包和图片文件，无法恢复）`)) return;
+    btnDeleteBatch.disabled = true;
+    btnDeleteBatch.textContent = "删除中…";
+    try {
+      const res = await fetch("/api/batch/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ batch_id: BATCH_ID })
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        showToast("删除批次失败：" + (data.detail || "unknown"), 2200);
+        return;
+      }
+      showToast(`✅ 已删除批次：#${BATCH_ID}（删除 ${data.deleted_stickers || 0} 张）`, 1200);
+      setTimeout(() => { window.location.href = "/admin/pending"; }, 700);
+    } catch (e) {
+      showToast("删除批次失败：网络错误", 2200);
+    } finally {
+      btnDeleteBatch.disabled = false;
+      btnDeleteBatch.textContent = "删除批次";
+    }
+  }
+
+  btnSaveAll.addEventListener("click", saveAll);
+  btnReload.addEventListener("click", (e) => { e.preventDefault(); load(); });
+  btnDeleteBatch.addEventListener("click", deleteBatch);
+
+  window.addEventListener("beforeunload", (e) => {
+    if (edits.size > 0) {
+      e.preventDefault();
+      e.returnValue = "";
+    }
+  });
+
+  load();
+  }) ();
+</script>
+{% endblock %}

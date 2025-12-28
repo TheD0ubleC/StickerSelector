@@ -1,0 +1,5 @@
+{
+  // 关闭 HTML 的脚本与样式校验（减少误报），仅影响此工作区
+  "html.validate.scripts": false,
+  "html.validate.styles": false
+}

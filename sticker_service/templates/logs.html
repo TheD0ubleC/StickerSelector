@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>日志</h1>
+    <div class="hint">尾部 {{ n }} 行（用于调试）</div>
+  </div>
+</div>
+
+<div class="card">
+  <pre class="log">{{ content }}</pre>
+</div>
+{% endblock %}

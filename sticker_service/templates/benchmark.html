@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>模型</h1>
+    <div class="hint">根据设备配置推荐模型，并支持模型切换与 Embedding 预处理。</div>
+  </div>
+</div>
+
+<div class="grid2">
+  <div class="card">
+    <div class="row">
+      <div class="row-line">
+        <div class="title2">设备信息</div>
+        <button id="btnRefreshDevice" class="btn secondary small">刷新设备信息</button>
+      </div>
+      <div class="row-line"><span class="pill">PyTorch</span> <span id="torchVersion">-</span></div>
+      <div class="row-line"><span class="pill">CUDA 构建</span> <span id="cudaBuild">-</span></div>
+      <div class="row-line"><span class="pill">CUDA 可用</span> <span id="cudaAvail">-</span></div>
+      <div class="row-line"><span class="pill">CPU 核心</span> <span id="cpuCores">-</span></div>
+      <div class="row-line"><span class="pill">CPU 频率</span> <span id="cpuMaxMhz">-</span></div>
+      <div class="row-line"><span class="pill">内存总量</span> <span id="ramTotal">-</span></div>
+      <div class="row-line"><span class="pill">可用内存</span> <span id="ramAvail">-</span></div>
+      <div class="row-line"><span class="pill">GPU</span> <span id="cudaDevice">-</span></div>
+      <div class="row-line"><span class="pill">显存</span> <span id="cudaVram">-</span></div>
+      <div class="row-line"><span class="pill">GPU 频率</span> <span id="cudaClock">-</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div class="title2">当前设备推荐</div>
+      <div class="muted small">本推荐仅供参考！可根据设备性能随意选择！</div>
+      <div class="row-line">
+
+        <span id="recommendLevel" class="pill">-</span>
+        <span id="recommendModel">-</span>
+      </div>
+      <div id="recommendNote" class="muted">-</div>
+      <br>
+      <div class="row-line">
+        <button id="btnApplyRecommend" class="btn">一键选择</button>
+        <div id="recommendMeta" class="muted small"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="row">
+    <div class="title2">模型列表</div>
+    <div class="hint">可下载 / 使用 / 删除。下载或 Embedding 期间会强制返回本页。手动放入模型后点击“刷新列表”即可识别。</div>
+
+    <div class="row-line">
+      <label for="hfEndpointInput">HF 链接</label>
+      <input id="hfEndpointInput" class="grow" type="text" placeholder="https://huggingface.co" />
+      <label for="recallTopkInput">召回 topk</label>
+      <input id="recallTopkInput" class="input-compact" type="number" min="1" value="20" />
+      <div class="muted small">仅复合模型生效</div>
+      <button id="btnSaveSettings" class="btn secondary small">保存设置</button>
+      <button id="btnRefreshModels" class="btn small">刷新列表</button>
+    </div>
+
+    <div id="downloadWrap" class="row" style="display:none;">
+      <label>模型下载</label>
+      <div class="progress">
+        <div id="downloadBar" class="progress-bar" style="width:0%"></div>
+      </div>
+      <div id="downloadText" class="muted">0%</div>
+      <div id="downloadSpeed" class="muted small"></div>
+      <div class="row-line">
+        <button id="btnCancelDownload" class="btn secondary small">取消下载并清空</button>
+        <div id="downloadNote" class="muted small"></div>
+      </div>
+    </div>
+
+    <div id="restartWrap" class="row" style="display:none;">
+      <div class="pill warn">正在重启服务...</div>
+    </div>
+
+    <div id="modelList" class="model-list"></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="row">
+    <div class="title2">Embedding 预处理</div>
+    <div id="embeddingWrap" class="row" style="display:none;">
+      <label>Embedding 进度</label>
+      <div class="progress">
+        <div id="embeddingBar" class="progress-bar" style="width:0%"></div>
+      </div>
+      <div id="embeddingText" class="muted">0%</div>
+    </div>
+    <div id="embeddingReady" class="pill ok" style="display:none;">Embedding 已就绪</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="row">
+    <div class="title2">等级说明</div>
+    <div class="hint">以下是各等级模型的优势与适用配置参考。</div>
+  </div>
+</div>
+
+<div class="grid2">
+
+  <!-- L0 -->
+  <div class="card">
+    <div class="row">
+      <div class="title2">L0 轻量兜底 · moka-ai/m3e-small fp16</div>
+      <div class="hint">
+        极限低配环境唯一稳定选择，适合 1GB 内存的云服务器，
+        目标是“能跑起来”。
+      </div>
+      <div class="hint">384 维 · mean pooling</div>
+      <div class="hint"><b>推荐配置：1h1g（强烈推荐）</b></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div class="title2">L0 轻量兜底 · moka-ai/m3e-small fp32</div>
+      <div class="hint">
+        m3e-small 的 fp32 版本，占用略高，仅在内存稍有富余时作为备选。
+      </div>
+      <div class="hint">384 维 · mean pooling</div>
+      <div class="hint">推荐配置：≥1.5GB 内存</div>
+    </div>
+  </div>
+
+  <!-- L1 -->
+  <div class="card">
+    <div class="row">
+      <div class="title2">L1 性价比首选 · BAAI/bge-small-zh-v1.5 fp32</div>
+      <div class="hint">
+        低成本云服务器的最佳平衡点，
+        在有限资源下明显拉开语义差距。
+      </div>
+      <div class="hint">384 维 · CLS pooling</div>
+      <div class="hint"><b>推荐配置：1–2 核 / ≥2GB 内存</b></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div class="title2">L1 折中选择 · BAAI/bge-small-zh-v1.5 fp16</div>
+      <div class="hint">
+        bge-small 的低精度版本，占用更低，
+        但在 CPU 场景下收益有限。
+      </div>
+      <div class="hint">384 维 · CLS pooling</div>
+      <div class="hint">推荐配置：资源紧张但 ≥2GB 内存</div>
+    </div>
+  </div>
+
+  <!-- L2 -->
+  <div class="card">
+    <div class="row">
+      <div class="title2">L2 主力高精度 · BAAI/bge-large-zh-v1.5 fp16</div>
+      <div class="hint">
+        主流 PC / 开发者电脑首选，
+        在性能与内存占用之间取得良好平衡。
+      </div>
+      <div class="hint">1024 维 · CLS pooling</div>
+      <div class="hint"><b>推荐配置：≥6 核 / ≥6GB 内存</b></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div class="title2">L2 高精度增强 · BAAAI/bge-large-zh-v1.5 fp32</div>
+      <div class="hint">
+        在内存与 CPU 资源充足的情况下，
+        提供更稳定的高精度表现。
+      </div>
+      <div class="hint">1024 维 · CLS pooling</div>
+      <div class="hint">推荐配置：≥8 核 / ≥8GB 内存（无 GPU）</div>
+    </div>
+  </div>
+
+  <!-- L4 -->
+  <div class="card">
+    <div class="row">
+      <div class="title2">L4 天花板 · bge-large fp32 + reranker fp32</div>
+      <div class="hint">
+        在已有召回结果基础上进行二次精排，
+        仅适合追求极限准确率的高配用户。
+      </div>
+      <div class="hint">
+        BAAI/bge-large-zh-v1.5 + BAAI/bge-reranker-large
+      </div>
+      <div class="hint">
+        <b>推荐配置：≥8 核 / ≥12GB 内存 + GPU（专家模式）</b>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}

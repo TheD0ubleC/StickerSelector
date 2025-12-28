@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>系列管理</h1>
+    <div class="hint">系列启用/禁用会影响检索结果，支持导入/导出系列包。</div>
+  </div>
+</div>
+
+<div class="grid2">
+  <div class="card">
+    <form class="row" method="post" action="/admin/series/create">
+      <label>新建系列</label>
+      <div class="row-line">
+        <input name="name" class="grow" placeholder="比如：default / anime / memes" />
+        <button class="btn">创建</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="title2">导入系列包</div>
+    <div class="hint mt8">支持 ZIP 包导入，重名时可选择合并或取消。</div>
+    <div class="row mt12">
+      <div class="row-line">
+        <input id="importFile" class="grow" type="file" accept=".zip" />
+        <button id="btnImport" class="btn">开始导入</button>
+      </div>
+      <div id="importMsg" class="hint"></div>
+    </div>
+  </div>
+</div>
+
+<div class="card bulk-bar">
+  <div class="row-line">
+    <label class="checkbox">
+      <input type="checkbox" id="seriesCheckAll" />
+      全选
+    </label>
+    <span class="pill" id="seriesSelected">已选 0</span>
+    <button class="btn small" id="seriesExport">批量导出</button>
+    <button class="btn small danger" id="seriesDelete">批量删除</button>
+  </div>
+  <div class="hint mt8">
+    删除系列会移除该系列下的所有表情包。
+    如果需要保留，请到「表情包管理 → 对应系列 → 全选 → 移动到安全系列」再删除。
+  </div>
+</div>
+
+<div class="card">
+  <div class="row-line">
+    <div class="title2">已有系列</div>
+  </div>
+
+  <table class="table mt12">
+    <thead>
+      <tr>
+        <th></th>
+        <th>ID</th>
+        <th>名称</th>
+        <th>数量</th>
+        <th>状态</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in series %}
+      <tr>
+        <td><input type="checkbox" class="series-check" value="{{ s.id }}" /></td>
+        <td class="mono">{{ s.id }}</td>
+        <td><span class="pill">{{ s.name }}</span></td>
+        <td>{{ series_counts.get(s.id, 0) }}</td>
+        <td>
+          {% if s.enabled %}
+          <span class="pill ok">enabled</span>
+          {% else %}
+          <span class="pill bad">disabled</span>
+          {% endif %}
+        </td>
+        <td class="row-line">
+          <form method="post" action="/admin/series/toggle">
+            <input type="hidden" name="id" value="{{ s.id }}" />
+            <input type="hidden" name="enabled" value="{{ 0 if s.enabled else 1 }}" />
+            <button class="btn small">{{ "禁用" if s.enabled else "启用" }}</button>
+          </form>
+          <a class="btn small ghost" href="/admin/series/export?series_id={{ s.id }}">导出</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<script>
+  (function () {
+    const input = document.getElementById("importFile");
+    const btn = document.getElementById("btnImport");
+    const msg = document.getElementById("importMsg");
+    const checkAll = document.getElementById("seriesCheckAll");
+    const selected = document.getElementById("seriesSelected");
+    const btnExport = document.getElementById("seriesExport");
+    const btnDelete = document.getElementById("seriesDelete");
+
+    function setMsg(text, ok) {
+      msg.textContent = text || "";
+      msg.style.color = ok === false ? "#b91c1c" : "";
+    }
+
+    async function doImport(mode) {
+      const file = input.files && input.files[0];
+      if (!file) {
+        setMsg("请先选择 ZIP 文件", false);
+        return;
+      }
+      btn.disabled = true;
+      setMsg("导入中…");
+
+      const fd = new FormData();
+      fd.append("file", file, file.name);
+      fd.append("mode", mode || "ask");
+
+      try {
+        const res = await fetch("/admin/series/import", { method: "POST", body: fd });
+        let data = {};
+        try { data = await res.json(); } catch (e) { }
+
+        if (res.status === 409 && data && data.conflict) {
+          const ok = confirm(`系列 "${data.series_name}" 已存在，是否合并导入？`);
+          if (ok) {
+            await doImport("merge");
+          } else {
+            setMsg("已取消导入");
+          }
+          return;
+        }
+
+        if (!res.ok || !data.ok) {
+          setMsg("导入失败：" + (data.detail || data.message || res.status), false);
+          return;
+        }
+
+        const skipped = (data.skipped || []).length;
+        setMsg(`导入完成：${data.imported || 0} 张，跳过 ${skipped} 张`, true);
+        setTimeout(() => window.location.reload(), 800);
+      } catch (e) {
+        setMsg("导入失败：网络错误", false);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function seriesChecks() {
+      return Array.from(document.querySelectorAll(".series-check"));
+    }
+
+    function selectedIds() {
+      return seriesChecks().filter(c => c.checked).map(c => parseInt(c.value, 10)).filter(n => Number.isFinite(n));
+    }
+
+    function updateSelected() {
+      const total = seriesChecks().length;
+      const picked = selectedIds().length;
+      selected.textContent = `已选 ${picked}`;
+      if (checkAll) {
+        if (picked === 0) {
+          checkAll.checked = false;
+          checkAll.indeterminate = false;
+        } else if (picked === total) {
+          checkAll.checked = true;
+          checkAll.indeterminate = false;
+        } else {
+          checkAll.checked = false;
+          checkAll.indeterminate = true;
+        }
+      }
+    }
+
+    async function bulkExport() {
+      const ids = selectedIds();
+      if (!ids.length) {
+        if (typeof toast === "function") toast("请选择要导出的系列");
+        return;
+      }
+      try {
+        const res = await fetch("/admin/series/export_bulk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ series_ids: ids })
+        });
+        if (!res.ok) {
+          if (typeof toast === "function") toast("导出失败", await res.text());
+          return;
+        }
+        const blob = await res.blob();
+        let filename = "series_export.zip";
+        const disp = res.headers.get("Content-Disposition") || "";
+        const match = disp.match(/filename=\"?([^\";]+)\"?/);
+        if (match && match[1]) filename = match[1];
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 300);
+      } catch (e) {
+        if (typeof toast === "function") toast("导出失败", "网络错误");
+      }
+    }
+
+    async function bulkDelete() {
+      const ids = selectedIds();
+      if (!ids.length) {
+        if (typeof toast === "function") toast("请选择要删除的系列");
+        return;
+      }
+      const ok = confirm(
+        `确定删除选中的 ${ids.length} 个系列？\n` +
+        `删除后会移除该系列下的所有表情包，无法恢复。`
+      );
+      if (!ok) return;
+
+      try {
+        const res = await fetch("/admin/series/delete_bulk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ series_ids: ids })
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          if (typeof toast === "function") toast("删除失败", data.detail || "unknown");
+          return;
+        }
+        if (typeof toast === "function") toast("删除完成", `deleted ${data.deleted || 0}`);
+        setTimeout(() => window.location.reload(), 400);
+      } catch (e) {
+        if (typeof toast === "function") toast("删除失败", "网络错误");
+      }
+    }
+
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      doImport("ask");
+    });
+
+    seriesChecks().forEach(c => c.addEventListener("change", updateSelected));
+    if (checkAll) {
+      checkAll.addEventListener("change", () => {
+        seriesChecks().forEach(c => { c.checked = checkAll.checked; });
+        updateSelected();
+      });
+    }
+    if (btnExport) btnExport.addEventListener("click", (e) => { e.preventDefault(); bulkExport(); });
+    if (btnDelete) btnDelete.addEventListener("click", (e) => { e.preventDefault(); bulkDelete(); });
+
+    updateSelected();
+  })();
+</script>
+{% endblock %}

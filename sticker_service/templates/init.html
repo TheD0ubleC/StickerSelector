@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>初始化模型</h1>
+    <div class="hint">当前未检测到可用模型，请先下载模型后再进入其它页面。</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="row">
+    <div class="title2">模型列表</div>
+    <div class="hint">选择模型下载完成后即可使用系统。手动放入模型后点击“刷新列表”。</div>
+
+    <div class="row-line">
+      <label for="hfEndpointInput">HF 链接</label>
+      <input id="hfEndpointInput" class="grow" type="text" placeholder="https://huggingface.co" />
+      <label for="recallTopkInput">召回 topk</label>
+      <input id="recallTopkInput" class="input-compact" type="number" min="1" value="20" />
+      <div class="muted small">仅复合模型生效</div>
+      <button id="btnSaveSettings" class="btn secondary small">保存设置</button>
+      <button id="btnRefreshModels" class="btn small">刷新列表</button>
+    </div>
+
+    <div id="downloadWrap" class="row" style="display:none;">
+      <label>模型下载</label>
+      <div class="progress">
+        <div id="downloadBar" class="progress-bar" style="width:0%"></div>
+      </div>
+      <div id="downloadText" class="muted">0%</div>
+      <div id="downloadSpeed" class="muted small"></div>
+      <div class="row-line">
+        <button id="btnCancelDownload" class="btn secondary small">取消下载并清空</button>
+        <div id="downloadNote" class="muted small"></div>
+      </div>
+    </div>
+
+    <div id="modelList" class="model-list"></div>
+  </div>
+</div>
+{% endblock %}

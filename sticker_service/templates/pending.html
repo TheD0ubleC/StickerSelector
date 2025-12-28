@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>待打 Tag</h1>
+    <div class="hint">显示还未设置 tag 的数量，以及最近的批次入口。</div>
+  </div>
+  <div class="row-line">
+    <a class="btn glow" href="/admin/upload">去上传</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="row-line">
+    <div class="title2">当前待处理</div>
+    <div class="spacer"></div>
+    <span class="pill bad">pending {{ pending_count }}</span>
+  </div>
+  <div class="hint mt8">点击某个 Batch 进入批量打 tag 页面。</div>
+</div>
+
+<div class="card">
+  <div class="row-line">
+    <div class="title2">最近批次</div>
+  </div>
+
+  <table class="table mt12">
+    <thead>
+      <tr>
+        <th>Batch</th>
+        <th>Series</th>
+        <th>备注</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for b in batches %}
+      <tr>
+        <td class="mono">#{{ b.id }}</td>
+        <td>
+          {% set s = series_map.get(b.series_id) %}
+          <span class="pill">{{ s.name if s else b.series_id }}</span>
+        </td>
+        <td class="mono">{{ b.note }}</td>
+        <td><a class="btn small" href="/admin/batch/{{ b.id }}">打开</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>编辑 <span class="pill">#{{ st.id }}</span></h1>
+    <div class="hint">修改标签、系列与启用状态。</div>
+  </div>
+  <div class="row-line">
+    {% if st.enabled %}
+    <span class="pill ok">enabled</span>
+    {% else %}
+    <span class="pill bad">disabled</span>
+    {% endif %}
+    {% if st.needs_tag %}
+    <span class="pill warn">needs_tag</span>
+    {% else %}
+    <span class="pill ok">tagged</span>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card grid2">
+  <div>
+    <img class="preview" src="{{ st.url }}" />
+    <div class="muted small mt12">{{ st.filename }}</div>
+  </div>
+
+  <div>
+    <form method="post" action="/admin/sticker/{{ st.id }}/update" class="row">
+      <label>Tags</label>
+      <textarea id="tagsEdit" name="tags" class="textarea big" rows="5">{{ st.tags|join(" ") }}</textarea>
+
+      <div class="grid2">
+        <div>
+          <label>系列</label>
+          <select name="series_id">
+            {% for s in series %}
+            <option value="{{ s.id }}" {% if st.series_id==s.id %}selected{% endif %}>
+              {{ s.name }}{% if not s.enabled %}（已禁用）{% endif %}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label>启用</label>
+          <select name="enabled">
+            <option value="1" {% if st.enabled %}selected{% endif %}>启用</option>
+            <option value="0" {% if not st.enabled %}selected{% endif %}>禁用</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row-line mt12">
+        <button class="btn glow" type="submit">保存</button>
+        <a class="btn ghost" href="{{ st.url }}" target="_blank">打开原图</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

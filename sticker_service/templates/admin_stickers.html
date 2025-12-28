@@ -1,0 +1,370 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>表情包管理</h1>
+    {% if mode == "series" %}
+    <div class="hint">先选择系列进入管理，再进行标签维护或批量操作。</div>
+    {% else %}
+    <div class="hint">支持多选批量操作，也可单条保存。</div>
+    {% endif %}
+  </div>
+  <div class="row-line">
+    {% if mode == "series" %}
+    <a class="btn secondary" href="/admin/series">系列管理</a>
+    {% else %}
+    <a class="btn ghost" href="/admin/stickers">返回系列列表</a>
+    <a class="btn secondary" href="/admin/pending">去待打 Tag</a>
+    {% endif %}
+  </div>
+</div>
+
+{% if mode == "series" %}
+<div class="card">
+  <div class="series-grid">
+    {% for s in series_cards %}
+    <a class="series-card" href="/admin/stickers?series_id={{ s.id }}&show_disabled=1">
+      <div class="series-title">{{ s.name }}</div>
+      <div class="series-meta">共 {{ s.count }} 张</div>
+      {% if s.enabled %}
+      <span class="pill ok">enabled</span>
+      {% else %}
+      <span class="pill bad">disabled</span>
+      {% endif %}
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% else %}
+<div class="card">
+  <form class="filters" method="get" action="/admin/stickers">
+    <div class="filters-grid">
+      <div>
+        <label>系列筛选</label>
+        <select name="series_id" onchange="this.form.submit()">
+          {% for s in series %}
+          <option value="{{ s.id }}" {% if selected_series_id==s.id %}selected{% endif %}>
+            {{ s.name }}{% if not s.enabled %}（已禁用）{% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label>显示禁用的表情包</label>
+        <select name="show_disabled" onchange="this.form.submit()">
+          <option value="1" {% if show_disabled %}selected{% endif %}>显示</option>
+          <option value="0" {% if not show_disabled %}selected{% endif %}>隐藏</option>
+        </select>
+      </div>
+
+      <div>
+        <label>搜索（ID/文件名/Tag/系列）</label>
+        <input id="q" type="text" placeholder="比如：猫 / capoo / #123 / angry" />
+      </div>
+
+      <div class="row-end">
+        <label>&nbsp;</label>
+        <a class="btn ghost" href="/admin/series">系列管理</a>
+      </div>
+    </div>
+  </form>
+
+  <div class="statline mt12">
+    <span class="pill">总数 <b id="countAll">{{ stickers|length }}</b></span>
+    <span class="pill">筛选后 <b id="countShown">{{ stickers|length }}</b></span>
+    <span class="hint">（输入搜索仅本地过滤，不请求后端）</span>
+  </div>
+</div>
+
+<div class="card bulk-bar">
+  <div class="row-line">
+    <label class="checkbox">
+      <input type="checkbox" id="checkAll" />
+      全选当前筛选
+    </label>
+    <span class="pill" id="bulkCount">已选 0</span>
+    <button class="btn small" id="bulkEnable" type="button">启用所选</button>
+    <button class="btn small secondary" id="bulkDisable" type="button">禁用所选</button>
+    <div class="spacer"></div>
+    <select id="bulkMoveTo">
+      <option value="">移动到系列…</option>
+      {% for s in series %}
+      <option value="{{ s.id }}">{{ s.name }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn small" id="bulkMove" type="button">批量移动</button>
+    <button class="btn small danger" id="bulkDelete" type="button">删除所选</button>
+  </div>
+  <div class="hint mt8">删除会移除图片文件且不可恢复，请谨慎操作。</div>
+</div>
+
+<div class="card list-card">
+  <div class="list-header">
+    <div></div>
+    <div>预览</div>
+    <div>信息</div>
+    <div>Tags</div>
+    <div>系列</div>
+    <div>状态</div>
+    <div>操作</div>
+  </div>
+
+  <div id="list" class="list-body">
+    {% for st in stickers %}
+    {% set tag_text = (st.tags or [])|join(" ") %}
+    <form class="list-row" data-id="{{ st.id }}" data-fn="{{ st.filename|lower }}" data-tags="{{ tag_text|lower }}"
+      data-series="{{ st.series_name|lower }}" style="--delay: {{ loop.index0 * 0.02 }}s" method="post"
+      action="/admin/sticker/{{ st.id }}/update" onsubmit="return onSubmitRow(this)">
+      <input type="hidden" name="return_to" value="{{ return_to }}" />
+
+      <div class="cell-check">
+        <input type="checkbox" class="row-check" value="{{ st.id }}" />
+      </div>
+
+      <div class="list-thumb">
+        <img src="{{ st.url }}" loading="lazy" />
+      </div>
+
+      <div class="cell-meta">
+        <div class="row-line">
+          <span class="pill">#{{ st.id }}</span>
+          <span class="muted">{{ st.series_name }}</span>
+          {% if not st.series_enabled %}
+          <span class="pill warn">系列禁用</span>
+          {% endif %}
+          {% if not st.enabled %}
+          <span class="pill bad">已禁用</span>
+          {% endif %}
+          {% if st.needs_tag %}
+          <span class="pill warn">缺 Tag</span>
+          {% endif %}
+        </div>
+        <div class="muted small">{{ st.filename }}</div>
+      </div>
+
+      <div>
+        <textarea class="textarea tags-input" name="tags" rows="2" placeholder="例如：开心 可爱 生气">{{ tag_text }}</textarea>
+      </div>
+
+      <div>
+        <select name="series_id">
+          {% for s in series %}
+          <option value="{{ s.id }}" data-name="{{ s.name|lower }}" {% if st.series_id==s.id %}selected{% endif %}>
+            {{ s.name }}{% if not s.enabled %}（已禁用）{% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <select name="enabled">
+          <option value="1" {% if st.enabled %}selected{% endif %}>启用</option>
+          <option value="0" {% if not st.enabled %}selected{% endif %}>禁用</option>
+        </select>
+      </div>
+
+      <div class="cell-actions">
+        <button class="btn small" type="submit">保存</button>
+        <a class="btn small ghost" href="{{ st.url }}" target="_blank">图片</a>
+        <a class="btn small ghost" href="/admin/sticker/{{ st.id }}" target="_blank">详情</a>
+        <button class="btn small danger" type="button" data-act="del">删除</button>
+      </div>
+    </form>
+    {% endfor %}
+  </div>
+</div>
+
+<script>
+  (function () {
+    const q = document.getElementById("q");
+    const list = document.getElementById("list");
+    const countAll = document.getElementById("countAll");
+    const countShown = document.getElementById("countShown");
+    const checkAll = document.getElementById("checkAll");
+    const bulkCount = document.getElementById("bulkCount");
+    const bulkEnable = document.getElementById("bulkEnable");
+    const bulkDisable = document.getElementById("bulkDisable");
+    const bulkMove = document.getElementById("bulkMove");
+    const bulkMoveTo = document.getElementById("bulkMoveTo");
+    const bulkDelete = document.getElementById("bulkDelete");
+
+    function normalize(s) { return String(s || "").toLowerCase().trim(); }
+
+    function visibleRows() {
+      return Array.from(list.querySelectorAll(".list-row")).filter(r => r.style.display !== "none");
+    }
+
+    function selectedChecks() {
+      return Array.from(list.querySelectorAll(".row-check")).filter(c => c.checked && c.closest(".list-row").style.display !== "none");
+    }
+
+    function selectedIds() {
+      return selectedChecks().map(c => parseInt(c.value, 10)).filter(n => Number.isFinite(n));
+    }
+
+    function updateBulkState() {
+      const visible = visibleRows();
+      const selected = selectedChecks();
+      bulkCount.textContent = `已选 ${selected.length}`;
+      if (checkAll) {
+        if (visible.length === 0) {
+          checkAll.checked = false;
+          checkAll.indeterminate = false;
+        } else if (selected.length === visible.length) {
+          checkAll.checked = true;
+          checkAll.indeterminate = false;
+        } else if (selected.length > 0) {
+          checkAll.checked = false;
+          checkAll.indeterminate = true;
+        } else {
+          checkAll.checked = false;
+          checkAll.indeterminate = false;
+        }
+      }
+    }
+
+    function applyFilter() {
+      const kw = normalize(q.value);
+      const rows = Array.from(list.querySelectorAll(".list-row"));
+      let shown = 0;
+
+      for (const r of rows) {
+        const id = r.dataset.id || "";
+        const fn = r.dataset.fn || "";
+        const tags = r.dataset.tags || "";
+        const series = r.dataset.series || "";
+        const hay = `#${id} ${id} ${fn} ${tags} ${series}`;
+        const ok = !kw || hay.includes(kw);
+        r.style.display = ok ? "" : "none";
+        if (ok) shown++;
+      }
+      countShown.textContent = String(shown);
+      updateBulkState();
+    }
+
+    async function deleteSticker(row) {
+      const id = row?.dataset?.id;
+      if (!id) return;
+      if (!confirm(`确定删除这张表情包？\n#${id}\n（会同时删除图片文件，无法恢复）`)) return;
+
+      const btn = row.querySelector('[data-act="del"]');
+      if (btn) { btn.disabled = true; btn.textContent = "删除中…"; }
+
+      try {
+        const res = await fetch("/api/sticker/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id })
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          if (typeof toast === "function") toast("删除失败", data.detail || "unknown");
+          return;
+        }
+        row.remove();
+        countAll.textContent = String(Math.max(0, list.querySelectorAll(".list-row").length));
+        applyFilter();
+        if (typeof toast === "function") toast("已删除", `#${id}`);
+      } catch (e) {
+        if (typeof toast === "function") toast("删除失败", "网络错误");
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = "删除"; }
+      }
+    }
+
+    async function doBulk(action) {
+      const ids = selectedIds();
+      if (!ids.length) {
+        if (typeof toast === "function") toast("请先选择表情包");
+        return;
+      }
+      const payload = { action, ids };
+      if (action === "move") {
+        const target = bulkMoveTo.value || "";
+        if (!target) {
+          if (typeof toast === "function") toast("请选择目标系列");
+          return;
+        }
+        payload.series_id = target;
+      }
+      if (action === "delete") {
+        if (!confirm(`确定删除所选 ${ids.length} 张表情包？\n（会删除图片文件，无法恢复）`)) return;
+      }
+      try {
+        const res = await fetch("/api/stickers/bulk_action", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          if (typeof toast === "function") toast("批量操作失败", data.detail || "unknown");
+          return;
+        }
+        if (typeof toast === "function") toast("批量操作完成", `action=${action}`);
+        setTimeout(() => window.location.reload(), 400);
+      } catch (e) {
+        if (typeof toast === "function") toast("批量操作失败", "网络错误");
+      }
+    }
+
+    window.onSubmitRow = function () {
+      if (typeof toast === "function") toast("保存中", "正在提交更新");
+      return true;
+    }
+
+    list.addEventListener("click", (ev) => {
+      const btn = ev.target.closest('[data-act="del"]');
+      if (!btn) return;
+      ev.preventDefault();
+      const row = btn.closest('.list-row');
+      if (row) deleteSticker(row);
+    });
+
+    list.addEventListener("input", (ev) => {
+      const target = ev.target;
+      if (!target || target.name !== "tags") return;
+      const row = target.closest(".list-row");
+      if (!row) return;
+      row.dataset.tags = normalize(target.value);
+    });
+
+    list.addEventListener("change", (ev) => {
+      const target = ev.target;
+      if (!target) return;
+      if (target.classList.contains("row-check")) {
+        updateBulkState();
+        return;
+      }
+      if (target.name === "series_id") {
+        const row = target.closest(".list-row");
+        if (!row) return;
+        const opt = target.selectedOptions && target.selectedOptions[0];
+        row.dataset.series = normalize(opt?.dataset?.name || opt?.textContent || "");
+      }
+    });
+
+    if (checkAll) {
+      checkAll.addEventListener("change", () => {
+        const visible = visibleRows();
+        for (const row of visible) {
+          const cb = row.querySelector(".row-check");
+          if (cb) cb.checked = checkAll.checked;
+        }
+        updateBulkState();
+      });
+    }
+
+    if (bulkEnable) bulkEnable.addEventListener("click", () => doBulk("enable"));
+    if (bulkDisable) bulkDisable.addEventListener("click", () => doBulk("disable"));
+    if (bulkMove) bulkMove.addEventListener("click", () => doBulk("move"));
+    if (bulkDelete) bulkDelete.addEventListener("click", () => doBulk("delete"));
+
+    q.addEventListener("input", applyFilter);
+    applyFilter();
+  })();
+</script>
+{% endif %}
+
+{% endblock %}

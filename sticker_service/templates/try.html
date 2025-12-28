@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>试用：输入关键词 / 情绪 / 动作</h1>
+    <div class="hint">支持空格分隔，例如：<span class="kbd">开心</span> <span class="kbd">比心</span> <span class="kbd">阴阳怪气</span>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="grid2">
+    <div class="row">
+      <label>Tags（空格分隔）</label>
+      <textarea id="tags" class="textarea big" rows="3" placeholder="比如：开心 比心 撒娇"></textarea>
+    </div>
+
+    <div class="row">
+      <label>参数</label>
+      <div class="grid4">
+        <div>
+          <label>TopK</label>
+          <input id="k" type="number" min="1" max="50" value="6" />
+        </div>
+        <div>
+          <label>系列（可选）</label>
+          <select id="series">
+            <option value="">全部</option>
+          </select>
+        </div>
+        <div>
+          <label>排序</label>
+          <select id="order">
+            <option value="desc">匹配度从大到小</option>
+            <option value="asc">匹配度从小到大</option>
+            <option value="none">不重新排序</option>
+          </select>
+        </div>
+        <div class="row-end">
+          <button id="btnTry" class="btn glow">开始匹配</button>
+        </div>
+      </div>
+      <div class="hint">Tag 越精准，匹配越准确。</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="row">
+    <div class="row-line">
+      <div class="title2">匹配结果</div>
+      <div id="resultMeta" class="muted"></div>
+    </div>
+    <div id="result" class="grid cards"></div>
+  </div>
+</div>
+{% endblock %}

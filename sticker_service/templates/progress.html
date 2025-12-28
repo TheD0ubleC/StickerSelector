@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>处理中</h1>
+    <div class="hint">下载模型或 Embedding 预处理中，完成或出错后可返回。</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="row">
+    <div class="title2">模型下载</div>
+    <div id="downloadWrap" class="row" style="display:none;">
+      <label>下载进度</label>
+      <div class="progress">
+        <div id="downloadBar" class="progress-bar" style="width:0%"></div>
+      </div>
+      <div id="downloadText" class="muted">0%</div>
+      <br>
+      <div id="downloadSpeed" class="muted small"></div>
+      <div class="row-line">
+        <button id="btnCancelDownload" class="btn secondary small">取消下载并清空</button>
+        <div id="downloadNote" class="muted small"></div>
+      </div>
+    </div>
+    <div id="downloadIdle" class="muted small">当前没有下载任务。</div>
+    <div id="switchWrap" class="row" style="display:none;">
+      <div class="pill ok">模型已准备好切换</div>
+      <div class="hint">如需完全释放模型占用，请手动重启：venv/全局环境直接重启并刷新页面即可，Docker 可安全重启整个容器后刷新页面。低配置设备推荐重启，重启后会自动使用切换后的模型。</div>
+      <div class="muted small">也可以直接加载，或选择“稍后重启”（下次启动自动切换）。</div>
+      <div class="row-line">
+        <button id="btnRestartNow" class="btn">重启并刷新</button>
+        <button id="btnLoadNoRestart" class="btn secondary">不重启直接加载</button>
+        <button id="btnRestartLater" class="btn ghost">稍后重启</button>
+      </div>
+    </div>
+    <div id="restartWrap" class="row" style="display:none;">
+      <div class="pill warn">正在重启服务...</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="row">
+    <div class="title2">Embedding 预处理</div>
+    <div id="embeddingWrap" class="row" style="display:none;">
+      <label>Embedding 进度</label>
+      <div class="progress">
+        <div id="embeddingBar" class="progress-bar" style="width:0%"></div>
+      </div>
+      <div id="embeddingText" class="muted">0%</div>
+    </div>
+    <div id="embeddingReady" class="pill ok" style="display:none;">Embedding 已就绪</div>
+  </div>
+</div>
+
+<div class="row-line">
+  <button id="btnGoBack" class="btn secondary" style="display:none;">返回模型页</button>
+  <div id="statusHint" class="muted small"></div>
+</div>
+{% endblock %}

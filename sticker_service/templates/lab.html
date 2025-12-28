@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>API 调试 / 教学</h1>
+    <div class="hint">这里用于外部调用者查看参数说明、返回结构、示例代码与在线调试。</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="title2">/api/select</div>
+  <div class="hint mt8">按 tags 找最匹配的表情包（POST）。</div>
+
+  <div class="row mt12">
+    <label>tags</label>
+    <input id="labTags" value="开心 比心" />
+  </div>
+  <div class="grid4 mt8">
+    <div>
+      <label>k</label>
+      <input id="labK" type="number" value="6" min="1" max="50" />
+    </div>
+    <div>
+      <label>series（可选）</label>
+      <input id="labSeries" placeholder="default" />
+    </div>
+    <div>
+      <label>order</label>
+      <select id="labOrder">
+        <option value="desc">desc</option>
+        <option value="asc">asc</option>
+        <option value="none">none</option>
+      </select>
+    </div>
+    <div class="row-end">
+      <button class="btn glow" id="btnLabSelect">调用</button>
+    </div>
+  </div>
+
+  <div class="title2 mt16">返回结构</div>
+  <pre class="mono codebox">{
+  "items": [
+    {
+      "id": 123,
+      "series": "default",
+      "url": "/stickers/default/xxx.png",
+      "raw": 0.312,
+      "fit_rate": 66.7,
+      "match_rate": 66.7,
+      "tags": ["开心","比心"]
+    }
+  ],
+  "meta": { "k": 6, "series": "", "order": "desc", "match_mode": "embed_cosine", "fit_mode": "softmax_topk", "fit_scale": 55.0 }
+}</pre>
+
+  <div class="title2 mt16">调用示例</div>
+  <pre class="mono codebox" id="labSelectCode"></pre>
+</div>
+
+<div class="card">
+  <div class="title2">/api/series/exists</div>
+  <div class="hint mt8">判断系列是否存在（POST）。</div>
+  <div class="row mt12">
+    <label>name</label>
+    <input id="labSeriesName" placeholder="default" />
+  </div>
+  <div class="row-line mt8">
+    <button class="btn glow" id="btnLabSeriesExists">调用</button>
+  </div>
+
+  <div class="title2 mt16">调用示例</div>
+  <pre class="mono codebox" id="labSeriesExistsCode"></pre>
+
+  <div class="title2 mt16">/api/series/count</div>
+  <div class="hint mt8">列出系列数量（POST）。可传 series_id 或 name；不传参数返回全部。</div>
+  <div class="grid3 mt12">
+    <div>
+      <label>series_id（可选）</label>
+      <input id="labSeriesCountId" type="number" min="1" placeholder="1" />
+    </div>
+    <div>
+      <label>name（可选）</label>
+      <input id="labSeriesCountName" placeholder="default" />
+    </div>
+    <div class="row-end">
+      <label>&nbsp;</label>
+      <button class="btn glow" id="btnLabSeriesCount">调用</button>
+    </div>
+  </div>
+  <div class="hint mt8">不传参数会返回所有系列的数量列表。</div>
+  <div class="title2 mt16">调用示例</div>
+  <pre class="mono codebox" id="labSeriesCountCode"></pre>
+</div>
+
+<div class="card">
+  <div class="row-line">
+    <div class="title2">在线返回 JSON</div>
+    <div class="spacer"></div>
+    <button class="btn small" id="btnLabClear">清空</button>
+  </div>
+  <pre id="labOut" class="mono codebox mt12"></pre>
+</div>
+{% endblock %}

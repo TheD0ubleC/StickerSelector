@@ -1,0 +1,356 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>批量上传（创建批次）</h1>
+    <div class="hint">拖拽或选择图片批量上传，上传后进入批次打 Tag。</div>
+  </div>
+</div>
+
+<div class="card">
+  <form id="uploadForm" method="post" action="/admin/upload" enctype="multipart/form-data" class="row">
+    <div class="row grid2">
+      <div>
+        <label>上传到系列</label>
+        <select name="series_id" required>
+          {% for s in series %}
+          <option value="{{ s.id }}">{{ s.name }}{% if not s.enabled %}（已禁用）{% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>批次备注（可空）</label>
+        <input name="note" placeholder="比如：2025-12-23 Capoo/早餐/搞笑" />
+      </div>
+    </div>
+
+    <div class="row">
+      <label>选择图片（可多选）</label>
+
+      <div id="dropzone" class="dropzone" tabindex="0">
+        <div class="dropzone-title">拖拽文件到这里，或点这里选择</div>
+        <div class="dropzone-sub">支持：png / jpg / jpeg / gif / webp（单张 ≤ {{ max_upload_mb }}MB）</div>
+        <input id="fileInput" type="file" name="files" multiple accept="image/*" style="display:none" />
+      </div>
+
+      <div id="fileMeta" class="muted" style="margin-top:10px;"></div>
+      <div id="preview" class="preview" style="margin-top:10px; display:none;"></div>
+    </div>
+
+    <div class="row" id="progressWrap" style="display:none;">
+      <label>上传进度</label>
+      <div class="progress">
+        <div id="progressBar" class="progress-bar" style="width:0%"></div>
+      </div>
+      <div id="progressText" class="muted" style="margin-top:6px;">0%</div>
+    </div>
+
+    <div class="row-line">
+      <button id="btnUpload" class="btn" type="submit">开始上传</button>
+      <button id="btnReset" class="btn secondary" type="button">清空选择</button>
+    </div>
+
+    <div class="row">
+      <div id="msg" class="msg"></div>
+    </div>
+  </form>
+</div>
+
+<style>
+  .dropzone-title {
+    font-size: 14px;
+  }
+
+  .dropzone-sub {
+    margin-top: 6px;
+    opacity: .75;
+    font-size: 12px;
+  }
+
+  .preview {
+    display: flex;
+    flex-wrap: wrap;
+    /* 主动换行，避免溢出卡片 */
+    gap: 16px;
+    align-items: flex-start;
+    justify-content: flex-start;
+    max-width: 100%;
+  }
+
+  .pv-wrap {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    width: 100%;
+    max-width: 220px;
+    /* 限制最大宽度，避免在超宽容器时过度拉伸 */
+    min-width: 140px;
+    /* 保证最小可视尺寸 */
+    flex: 0 1 160px;
+    /* 允许收缩与换行，默认基准宽度 160px */
+    aspect-ratio: 1 / 1;
+    /* 保持正方形 */
+    display: block;
+  }
+
+  .pv {
+    width: 100%;
+    height: 100%;
+    border-radius: 12px;
+    object-fit: contain;
+    background: rgba(15, 23, 42, .04);
+    border: 1px solid rgba(15, 23, 42, .12);
+    transition: .15s ease;
+    display: block;
+  }
+
+  .pv:hover {
+    transform: translateY(-1px) scale(1.02);
+  }
+
+  .pv-remove {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 23, 42, .45);
+    border: 1px solid rgba(15, 23, 42, .12);
+    color: white;
+    cursor: pointer;
+    font-size: 12px;
+  }
+
+  .pv-remove:hover {
+    background: rgba(220, 38, 38, .9);
+    color: white;
+    transform: translateY(-1px);
+  }
+
+  .msg {
+    white-space: pre-wrap;
+    line-height: 1.5;
+  }
+
+  .msg.ok {
+    color: #15803d;
+  }
+
+  .msg.err {
+    color: #b91c1c;
+  }
+</style>
+
+<script>
+  (function () {
+    const form = document.getElementById("uploadForm");
+    const dropzone = document.getElementById("dropzone");
+    const input = document.getElementById("fileInput");
+    const fileMeta = document.getElementById("fileMeta");
+    const preview = document.getElementById("preview");
+    const btnUpload = document.getElementById("btnUpload");
+    const btnReset = document.getElementById("btnReset");
+    const progressWrap = document.getElementById("progressWrap");
+    const progressBar = document.getElementById("progressBar");
+    const progressText = document.getElementById("progressText");
+    const msg = document.getElementById("msg");
+
+    // NOTE: 不能给 input.files 直接赋值（大多数浏览器会无效）
+    // 所以我们自己维护一个 pickedFiles 列表：点击选择/拖拽都写入这里。
+    let pickedFiles = [];
+    let objectUrls = [];
+
+    function bytes(n) {
+      if (!Number.isFinite(n)) return "";
+      const u = ["B", "KB", "MB", "GB"];
+      let i = 0, x = n;
+      while (x >= 1024 && i < u.length - 1) { x /= 1024; i++; }
+      return `${x.toFixed(i === 0 ? 0 : 2)} ${u[i]}`;
+    }
+
+    function setMsg(text, ok) {
+      msg.className = "msg " + (ok ? "ok" : "err");
+      msg.textContent = text || "";
+    }
+
+    function setFiles(files) {
+      const arr = Array.from(files || []);
+      if (arr.length === 0) {
+        fileMeta.textContent = "未选择任何文件";
+        preview.style.display = "none";
+        preview.innerHTML = "";
+        for (const u of objectUrls) { try { URL.revokeObjectURL(u); } catch (e) { } }
+        objectUrls = [];
+        return;
+      }
+      const total = arr.reduce((a, f) => a + (f.size || 0), 0);
+      const names = arr.slice(0, 8).map(f => f.name).join("、");
+      const more = arr.length > 8 ? ` … (+${arr.length - 8})` : "";
+      fileMeta.textContent = `已选择 ${arr.length} 张，总大小 ${bytes(total)}：${names}${more}`;
+
+      // preview
+      preview.innerHTML = "";
+      for (const u of objectUrls) { try { URL.revokeObjectURL(u); } catch (e) { } }
+      objectUrls = [];
+      const show = arr.slice(0, 18);
+      show.forEach((f, idx) => {
+        const url = URL.createObjectURL(f);
+        objectUrls.push(url);
+
+        const wrap = document.createElement('div');
+        wrap.className = 'pv-wrap';
+
+        const img = document.createElement("img");
+        img.className = "pv";
+        img.src = url;
+        img.title = f.name;
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'pv-remove';
+        btn.title = '移除';
+        btn.textContent = '✕';
+        btn.addEventListener('click', () => {
+          // remove this file from pickedFiles (use index of the item in arr)
+          const globalIndex = pickedFiles.indexOf(f);
+          if (globalIndex >= 0) {
+            pickedFiles.splice(globalIndex, 1);
+            input.value = ""; // clear input FileList to avoid stale data
+            setFiles(pickedFiles);
+            setMsg(`已移除：${f.name}`, true);
+          }
+        });
+
+        wrap.appendChild(img);
+        wrap.appendChild(btn);
+        preview.appendChild(wrap);
+      });
+      preview.style.display = "flex";
+    }
+
+    dropzone.addEventListener("click", () => input.click());
+    dropzone.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); } });
+    input.addEventListener("change", () => {
+      pickedFiles = Array.from(input.files || []);
+      setFiles(pickedFiles);
+    });
+
+    dropzone.addEventListener("dragenter", (e) => { e.preventDefault(); dropzone.classList.add("dragover"); });
+    dropzone.addEventListener("dragover", (e) => { e.preventDefault(); dropzone.classList.add("dragover"); });
+    dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
+    dropzone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropzone.classList.remove("dragover");
+      if (e.dataTransfer && e.dataTransfer.files) {
+        pickedFiles = Array.from(e.dataTransfer.files || []);
+        // 清掉 input.value，避免“点选后仍然用旧 FileList”
+        input.value = "";
+        setFiles(pickedFiles);
+        setMsg(`已通过拖拽选择 ${pickedFiles.length} 张`, true);
+      }
+    });
+
+    btnReset.addEventListener("click", () => {
+      input.value = "";
+      pickedFiles = [];
+      setFiles(pickedFiles);
+      progressWrap.style.display = "none";
+      progressBar.style.width = "0%";
+      progressText.textContent = "0%";
+      setMsg("");
+    });
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const files = Array.from(pickedFiles && pickedFiles.length ? pickedFiles : (input.files || []));
+      if (files.length === 0) {
+        setMsg("请先选择要上传的图片文件。", false);
+        return;
+      }
+
+      btnUpload.disabled = true;
+      btnReset.disabled = true;
+      setMsg("开始上传…", true);
+      progressWrap.style.display = "block";
+      progressBar.style.width = "0%";
+      progressText.textContent = "0%";
+
+      const fd = new FormData(form);
+      fd.delete("files");
+      for (const f of files) fd.append("files", f, f.name);
+
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", form.action, true);
+      xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
+      xhr.setRequestHeader("Accept", "application/json");
+
+      xhr.upload.onprogress = (evt) => {
+        if (!evt.lengthComputable) return;
+        const p = Math.max(0, Math.min(100, Math.round(evt.loaded / evt.total * 100)));
+        progressBar.style.width = p + "%";
+        progressText.textContent = `${p}%（${bytes(evt.loaded)} / ${bytes(evt.total)}）`;
+      };
+
+      xhr.onerror = () => {
+        btnUpload.disabled = false;
+        btnReset.disabled = false;
+        setMsg("上传失败：网络错误或服务器不可达。", false);
+      };
+
+      xhr.onload = () => {
+        btnUpload.disabled = false;
+        btnReset.disabled = false;
+
+        let data = null;
+        try { data = JSON.parse(xhr.responseText || "{}"); } catch (e) { }
+
+        if (!xhr.status || xhr.status >= 400 || !data || !data.ok) {
+          const txt = (data && (data.detail || data.error)) ? (data.detail || data.error) : (xhr.responseText || "");
+          setMsg("上传失败：" + (txt || ("HTTP " + xhr.status)), false);
+          return;
+        }
+
+        const created = data.created ?? 0;
+        const skipped = data.skipped ?? [];
+        const url = data.redirect_url;
+
+        let lines = [];
+        lines.push(`✅ 上传完毕！成功：${created} 张`);
+        if (Array.isArray(skipped) && skipped.length) {
+          lines.push(`⚠️ 跳过：${skipped.length} 张`);
+          for (const it of skipped.slice(0, 8)) {
+            lines.push(`- ${it.file || "(unknown)"}：${it.reason || "skip"}`);
+          }
+          if (skipped.length > 8) lines.push(`…（还有 ${skipped.length - 8} 条未展示）`);
+        }
+        lines.push("");
+        lines.push("你必须去打Tag才能生效");
+
+        setMsg(lines.join("\n"), true);
+
+        if (url) {
+          const a = document.createElement("a");
+          a.href = url;
+          a.className = "btn";
+          a.style.display = "inline-block";
+          a.style.marginTop = "10px";
+          a.textContent = "👉 去打 Tag（进入批次）";
+          msg.appendChild(document.createElement("div")).appendChild(a);
+
+          // 给你留一点时间看到提示
+          setTimeout(() => { window.location.href = url; }, 1400);
+        }
+      };
+
+      xhr.send(fd);
+    });
+
+    setFiles([]);
+  })();
+</script>
+
+{% endblock %}

@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ title or "Sticker Selector" }}</title>
+
+  <link rel="icon" href="{{ url_for('static', path='favicon.ico') }}">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+    rel="stylesheet" />
+
+  <link rel="stylesheet" href="/static/style.css?v=20251228_1" />
+</head>
+
+<body>
+  {% set p = __PAGE__ or "" %}
+  <div class="topbar">
+    <div class="brand">
+      <img class="logo" src="{{ url_for('static', path='StickerSelector.png') }}">
+      <div>
+        <div class="brand-title">Sticker Selector</div>
+        <div class="brand-sub">为 AI 提供真正“懂语境”的表情包选择。</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <a href="/try" class="navlink {% if p=='try' %}active{% endif %}">试用</a>
+      <a href="/admin/upload" class="navlink {% if p=='upload' %}active{% endif %}">批量上传</a>
+      <a href="/admin/pending" class="navlink {% if p=='pending' %}active{% endif %}">
+        待打 Tag <span id="badgePending" class="badge">0</span>
+      </a>
+      <a href="/admin/stickers" class="navlink {% if p=='stickers' %}active{% endif %}">表情包管理</a>
+      <a href="/admin/series" class="navlink {% if p=='series' %}active{% endif %}">系列管理</a>
+      <a href="/lab" class="navlink {% if p=='lab' %}active{% endif %}">Lab</a>
+      <a href="/benchmark" class="navlink {% if p=='benchmark' %}active{% endif %}">模型</a>
+      <a href="/logs" class="navlink">日志</a>
+      <a href="/about" class="navlink {% if p=='about' %}active{% endif %}">关于</a>
+    </nav>
+  </div>
+
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+
+  <div class="footer">
+    <div>© Sticker Selector</div>
+  </div>
+
+  <div id="toastHost" class="toast-host"></div>
+  <div id="modalHost" class="modal-host"></div>
+
+  <script>
+    window.__PAGE__ = "{{ __PAGE__ or '' }}";
+  </script>
+  <script src="/static/app.js?v=20251228_1"></script>
+</body>
+
+</html>

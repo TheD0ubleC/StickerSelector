@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>关于</h1>
+    <div class="hint">用于展示版本信息与应用图标资源。</div>
+  </div>
+</div>
+
+
+<div class="card about-hero">
+  <div class="about-hero-inner">
+    <img class="about-logo-img" src="{{ url_for('static', path='StickerSelector-Banner.png') }}"
+      alt="Sticker Selector logo" />
+    <dir class="about-line"></dir>
+
+    <dir class="about-text">
+      <div class="about-name">Sticker Selector</div>
+      <div class="about-tag">为 AI 提供真正“懂语境”的表情包选择。</div>
+      <div class="about-version">
+        <span class="about-chip">{{ app_version }}</span>
+      </div>
+  </div>
+
+  <div class="about-cta">
+    <div class="about-icon-row">
+      <div onclick="window.open('https://github.com/TheD0ubleC/StickerSelector', '_blank');"
+        class="about-link-icon-mini">
+        <img src="{{ url_for('static', path='Github.png') }}" alt="Sticker Selector icon" />
+        <div class="about-icon-meta">
+          <div class="about-icon-name">Github.com</div>
+          <div class="about-icon-hint">TheD0ubleC/StickerSelector</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+{% endblock %}
