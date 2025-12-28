@@ -27,7 +27,7 @@ StickerSelector 本身非常轻量，即使运行在 `1 核心 / 1GB 内存 / 3M
 安装依赖：
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements.runtime.txt
 ```
 
 ## 2. 启动服务
