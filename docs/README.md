@@ -4,6 +4,14 @@
   <img src="./assets/StickerSelector-Banner.png" alt="Logo"  width="500" />
 </p>
 
+<p align="center">
+  <img src="./assets/StickerSelector.png" height="28"/>
+  <img src="https://img.shields.io/badge/platform-Windows-blue?style=for-the-badge" alt="Windows Support" />
+  <img src="https://img.shields.io/badge/platform-macOS-lightgrey?style=for-the-badge" alt="macOS Support" />
+  <img src="https://img.shields.io/badge/platform-Linux-green?style=for-the-badge" alt="Linux Support" />
+
+</p>
+
 ## 介绍
 
 **AI 很会说话，但大多数时候并不会用表情包。**
@@ -18,10 +26,53 @@ StickerSelector 本身非常轻量，即使运行在 `1 核心 / 1GB 内存 / 3M
 
 如果条件允许，你也可以在自己的 PC 上部署更高性能的版本，配合各种聊天应用接入工具，或直接搭配 QQSafeChat，打造一个真正“拟真”的 AI 聊天体验。
 
+## 演示
+
+| 描述                                   | 演示                                      |
+| -------------------------------------- | ----------------------------------------- |
+| 使用 QQSafeChat 并接入 StickerSelector | <img src="./assets/a.png" height="300" /> |
+| WebUI 试用                             | <img src="./assets/b.png" height="300"/>  |
+| 模型选择页                             | <img src="./assets/c.png" height="300"/>  |
+
+## 0. 克隆本项目
+
+运行该命令进行克隆：
+
+```bash
+git clone https://github.com/TheD0ubleC/StickerSelector.git
+```
+
+进入：
+
+```bash
+cd .\StickerSelector
+```
+
 ## 1. 环境准备
 
 - Python 3.10+（推荐 3.10.x）
-- Windows/本地运行均可
+- Windows / Linux / macOS / 本地或服务器均可
+
+> 推荐使用虚拟环境运行，避免依赖冲突（尤其是服务器环境）。
+
+---
+
+### （可选但推荐）使用虚拟环境
+
+创建虚拟环境：
+
+```bash
+python -m venv .venv
+```
+
+激活虚拟环境（请根据平台选择命令）：
+
+```bash
+# Windows
+.venv\Scripts\activate
+# Linux / macOS
+source .venv/bin/activate
+```
 
 安装依赖：
 
@@ -29,30 +80,13 @@ StickerSelector 本身非常轻量，即使运行在 `1 核心 / 1GB 内存 / 3M
 pip install -r requirements.runtime.txt
 ```
 
-[不使用 Docker 点我跳转](#2-启动服务)
-
-如果是 Docker
-
-- ## Docker
-
-- ### CPU（通用）
-
-```bash
-docker compose -f docker/docker-compose.cpu.yml up --build
-```
-
-- ### GPU（CUDA 12.1）
-
-```bash
-docker compose -f docker/docker-compose.gpu.yml up --build
-```
-
----
-
 ## 2. 启动服务
 
 ```bash
-uvicorn sticker_service.app:app --reload
+# 如果你不需要直接公开在局域网或互联网 请使用
+uvicorn sticker_service.app:app --port 8000
+# 如果你需要公开在局域网或互联网 请使用
+uvicorn sticker_service.app:app --host 0.0.0.0 --port 8000
 ```
 
 启动后访问：
@@ -88,4 +122,4 @@ docs/               # 文档
 
 - 如果网络正常，首次启动会自动下载。
 - 如果网络受限，请配置代理或提前下载模型缓存。
-- 若出现 `SSLError`/`EOF` 等错误，多为网络或代理问题，建议检查 TLS/代理设置或使用镜像源。
+- 若出现 `SSLError`/`EOF` 等错误，多为网络或代理问题，请确保可以正常访问 Hugging Face 并建议检查 TLS/代理设置或使用镜像源。
